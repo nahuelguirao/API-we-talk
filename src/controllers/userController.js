@@ -36,12 +36,21 @@ const loginUserNormal = async (req, res) => {
         //Generates Token
         const token = jwt.sign({ userData: jwtUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
 
+        //Updates user's valid token in DB
+        const updateQuery = 'UPDATE users SET last_token = $1 WHERE id = $2'
+        await pool.query(updateQuery, [token, user.id])
+
         //Send token + user info (email + username)
         res.status(200).json({ token, user: jwtUser })
     } catch (error) {
         console.log('Error al intentar iniciar sesión: ', error)
         res.status(500).json({ error: 'Error interno del servidor.' })
     }
+}
+
+//VERIFY JWT TOKEN 
+const verifyToken = (req, res) => {
+    res.status(200).json({ message: 'Token de autenticación válido.', userData: req.userData });
 }
 
 //REGISTRATION NORMAL (With form)
@@ -74,4 +83,4 @@ const registerUserNormal = async (req, res) => {
     }
 }
 
-module.exports = { loginUserNormal, registerUserNormal }
+module.exports = { loginUserNormal, registerUserNormal, verifyToken }

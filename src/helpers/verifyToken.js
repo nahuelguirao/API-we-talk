@@ -15,7 +15,7 @@ const verifyTokenMiddleware = async (req, res, next) => {
 
         try {
             //Gets user and compares last_token 
-            const user = await pool.query('SELECT * FROM users WHERE id = $1 AND last_token = $2', [decoded.userData.id, token])
+            const user = await pool.query('SELECT * FROM users WHERE email = $1 AND last_token = $2', [decoded.userData.email, token])
 
             if (user.rowCount == 0) {
                 return res.status(401).json({ error: 'Token inválido.' })

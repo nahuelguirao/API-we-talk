@@ -7,7 +7,9 @@ userRouter.post("/login", userController.loginUserNormal)
 
 userRouter.post("/register", userController.registerUserNormal)
 
-//Recordar pasar el JWT como 'token' en el headeer
+userRouter.post("/google", userController.google)
+
+//Remember passing JWT as 'token' in the header
 userRouter.get("/verify-token", verifyTokenMiddleware, userController.verifyToken);
 
 module.exports = userRouter

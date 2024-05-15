@@ -26,21 +26,7 @@ const verifyUser = async (username) => {
     if (username.length > 50) {
         return false
     }
-
-    try {
-        const result = await pool.query('SELECT COUNT(*) AS count FROM users WHERE username = $1', [username])
-
-        if (result.rows[0].count === '0') {
-            return true
-        } else {
-            return false
-        }
-
-    } catch (error) {
-        console.log(error)
-        console.log('Error verificando username.')
-        return false
-    }
+    return true
 }
 
 const verifyEmail = async (email) => {

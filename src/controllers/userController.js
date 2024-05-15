@@ -14,15 +14,20 @@ const loginUserNormal = async (req, res) => {
     try {
         const { email, password } = req.body
 
+        //Tries to find an user with the entered e-mail
         const query = 'SELECT * FROM users WHERE email = $1'
         const result = await pool.query(query, [email])
 
-        //Tries to find an user with the entered e-mail
         if (result.rowCount == 0) {
             return res.status(401).json({ error: 'Credenciales incorrectas.' })
         }
 
         const user = result.rows[0]
+
+        //If user == null, is a Google account 
+        if (user.password == null) {
+            return res.status(401).json({ error: 'Este E-mail esta asociado a una cuenta con Google.' })
+        }
 
         //Compare password
         const validPassword = await bcrypt.compare(password, user.password)
@@ -32,10 +37,7 @@ const loginUserNormal = async (req, res) => {
         }
 
         //Info to keep into JWT token
-        const jwtUser = {
-            username: user.username,
-            email: user.email
-        }
+        const jwtUser = { username: user.username, email: user.email }
 
         //Generates Token
         const token = jwt.sign({ userData: jwtUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
@@ -87,7 +89,7 @@ const google = async (req, res) => {
     const { name, email, imageURL } = req.body
 
     if (!name || !email || !imageURL) {
-        return res.status(400).json({ message: 'Enviar name, email y imageURL.' })
+        return res.status(400).json({ error: 'Enviar name, email y imageURL.' })
     }
 
     try {

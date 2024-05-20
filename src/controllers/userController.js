@@ -112,6 +112,32 @@ const google = async (req, res) => {
 //To UPDATE username
 const changeUsername = async (req, res) => {
     const { username, email } = req.body
+
+    //Verifications
+    if (!verifications.verifyUser(username)) {
+        return res.status(400).json({ error: 'Formato de usuario inválido.' })
+    }
+
+    if (!username || !email) {
+        return res.status(400).json({ error: 'Enviar E-mail y username' })
+    }
+
+    try {
+        //Check if username is unique
+        const isAvailable = await userService.isUsernameAvailable(username)
+
+        if (!isAvailable) {
+            return res.status(400).json({ error: 'Nombre de usuario no disponible.' })
+        }
+
+        //If is unique update it in DB
+        await userService.updateUsername(username, email)
+        res.status(200).json({ message: 'Username establecido correctamente.' })
+    } catch (error) {
+        console.log('Error cambiando el username: ', error)
+        res.status(500).json({ error: 'Error al intentar cambiar el username.' })
+    }
 }
 
-module.exports = { loginUserNormal, registerUserNormal, google, verifyToken }
+
+module.exports = { loginUserNormal, registerUserNormal, google, verifyToken, changeUsername }

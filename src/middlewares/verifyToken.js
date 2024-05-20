@@ -1,4 +1,5 @@
 const authService = require('../services/authServices')
+const userSerivce = require('../services/userServices')
 const jwt = require('jsonwebtoken');
 
 const verifyTokenMiddleware = async (req, res, next) => {
@@ -22,8 +23,15 @@ const verifyTokenMiddleware = async (req, res, next) => {
                 return res.status(401).json({ error: 'Token inválido.' })
             }
 
-            //If is ok, sets userData in the request body
-            req.userData = decoded.userData
+
+            //If is ok, fetch user's info and then sets userData in the request body
+            const userInfo = await userSerivce.getUserByEmail(decoded.userData.email)
+            req.userData = {
+                id: userInfo.id,
+                username: userInfo.username,
+                imageURL: userInfo.image_url,
+                email: userInfo.email
+            }
             next()
 
         } catch (error) {

@@ -42,8 +42,7 @@ const insertGoogleUser = async (userData) => {
     const query = 'INSERT INTO users (username, image_url, email, auth_provider, google_id) VALUES ($1, $2, $3, $4, $5)'
     await pool.query(query, [createdUsername, imageURL, email, 'google', uid])
 
-    const userInfo = await getUserByEmail()
-    console.log(userInfo)
+    const userInfo = await getUserByEmail(email)
     const returnData = {
         id: userInfo.id,
         username: userInfo.username,
@@ -60,5 +59,11 @@ const updateToken = async (token, email) => {
     await pool.query(updateQuery, [token, email])
 }
 
+//Updates user's username 
+const updateUsername = async (username, email) => {
+    const query = 'UPDATE users SET username = $1 WHERE email = $2'
+    await pool.query(query, [username, email])
+}
 
-module.exports = { getUserByEmail, isEmailAvailable, isUsernameAvailable, insertNormalUser, insertGoogleUser, updateToken }
+
+module.exports = { getUserByEmail, isEmailAvailable, isUsernameAvailable, insertNormalUser, insertGoogleUser, updateToken, updateUsername }

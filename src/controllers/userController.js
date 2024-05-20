@@ -1,8 +1,8 @@
-const { pool } = require('../services/database')
-const { verifyUser, verifyEmail, verifyPassword } = require('../helpers/verifications')
-const encryptPassword = require('../helpers/encryptPassword')
-const bcrypt = require('bcrypt')
+const authService = require('../services/authServices')
+const userService = require('../services/userServices')
 const jwt = require('jsonwebtoken')
+const verifications = require('../helpers/verifications')
+const encryptPassword = require('../helpers/encryptPassword')
 
 //VERIFY JWT TOKEN 
 const verifyToken = (req, res) => {
@@ -14,43 +14,18 @@ const loginUserNormal = async (req, res) => {
     try {
         const { email, password } = req.body
 
-        //Tries to find an user with the entered e-mail
-        const query = 'SELECT * FROM users WHERE email = $1'
-        const result = await pool.query(query, [email])
-
-        if (result.rowCount == 0) {
-            return res.status(401).json({ error: 'Credenciales incorrectas.' })
-        }
-
-        const user = result.rows[0]
-
-        //If user == null, is a Google account 
-        if (user.password == null) {
-            return res.status(401).json({ error: 'Este E-mail esta asociado a una cuenta con Google.' })
-        }
-
-        //Compare password
-        const validPassword = await bcrypt.compare(password, user.password)
-
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Credenciales incorrectas.' })
-        }
-
-        //Info to keep into JWT token
-        const jwtUser = { username: user.username, email: user.email }
-
-        //Generates Token
-        const token = jwt.sign({ userData: jwtUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
-
-        //Updates user's valid token in DB
-        const updateQuery = 'UPDATE users SET last_token = $1 WHERE email = $2'
-        await pool.query(updateQuery, [token, user.email])
+        //Verify login service
+        const { user, token } = await authService.verifyLogin(email, password)
 
         //Send token + user info (email + username)
-        res.status(200).json({ token, user: jwtUser })
+        res.status(200).json({ token, user })
     } catch (error) {
         console.log('Error al intentar iniciar sesión: ', error)
-        res.status(500).json({ error: 'Error interno del servidor.' })
+        if (error.message === 'Credenciales incorrectas.' || error.message === 'Este E-mail está asociado a una cuenta con Google.') {
+            res.status(401).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: 'Error interno del servidor.' });
+        }
     }
 }
 
@@ -59,15 +34,21 @@ const registerUserNormal = async (req, res) => {
     try {
         const { username, email, password } = req.body
 
-        if (!(await verifyUser(username))) {
+        //VERIFICATIONS
+        if (!verifications.verifyUser(username)) {
             throw new Error('Nombre de usuario ya en uso o inválido.')
         }
 
-        if (!(await verifyEmail(email))) {
-            throw new Error('E-mail ya en uso o formato inválido')
+        if (!verifications.verifyEmail(email)) {
+            throw new Error('E-mail con formato inválido.')
         }
 
-        if (!verifyPassword(password)) {
+        const isEmailAvailable = await userService.isEmailAvailable(email)
+        if (!isEmailAvailable) {
+            throw new Error('E-mail ya en uso.')
+        }
+
+        if (!verifications.verifyPassword(password)) {
             throw new Error('Formato de la contraseña inválido.')
         }
 
@@ -75,11 +56,11 @@ const registerUserNormal = async (req, res) => {
         const passwordEncrypted = await encryptPassword(password)
 
         //Inserts user's data into the database
-        const query = 'INSERT INTO users (username, email, password) VALUES ($1, $2, $3)'
-        await pool.query(query, [username, email, passwordEncrypted])
+        await userService.insertNormalUser({ username, email, passwordEncrypted })
 
         res.status(200).json({ message: '¡Usuario registrado correctamente!' })
     } catch (error) {
+        console.log('Error al intentar registrar al usuario: ', error)
         res.status(400).json({ error: error.message })
     }
 }
@@ -93,29 +74,35 @@ const google = async (req, res) => {
     }
 
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email])
+        const user = await userService.getUserByEmail(email)
 
-        //It means that user already exist
-        if (result.rowCount > 0) {
-            const existingUser = await pool.query('SELECT username, email, image_url FROM users_google WHERE email = $1', [email])
-            const loginToken = jwt.sign({ userData: existingUser.rows[0] }, process.env.JWT_SECRET, { expiresIn: '365d' })
+        //If user already exists, updated token and get data
+        if (user) {
+            //Get user info
+            const existingUser = userService.getGoogleUser(email)
 
-            await pool.query('UPDATE users SET last_token = $1 WHERE email = $2', [loginToken, email])
+            //Creates newToken (to update)
+            const newToken = jwt.sign({ userData: existingUser.rows[0] }, process.env.JWT_SECRET, { expiresIn: '365d' })
 
-            return res.status(200).json({ token: loginToken, user: existingUser.rows[0] })
+            //Updates token
+            await userService.updateToken(newToken, email)
+
+            return res.status(200).json({ token: newToken, user: existingUser.rows[0] })
         }
 
+        //In case of new user:
         const newUser = { username: name, email, imageURL }
 
-        const registerToken = jwt.sign({ userData: newUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
+        //Generates token
+        const token = jwt.sign({ userData: newUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
 
-        await pool.query('INSERT INTO users (email, last_token) VALUES ($1, $2)', [email, registerToken])
-        await pool.query('INSERT INTO users_google (username, email, image_url) VALUES ($1, $2, $3)', [name, email, imageURL])
+        //Inserts info in DB
+        await userService.insertGoogleUser(newUser, token)
 
-        res.status(200).json({ token: registerToken, user: newUser })
+        res.status(200).json({ token, user: newUser })
     } catch (error) {
-        console.log('Error en register with google: ', error)
-        res.status(500).json({ error: 'Error registrando o logeando al usuario con google.' })
+        console.log('Error en registro con google: ', error)
+        res.status(500).json({ error: 'Error autenticando con google.' })
     }
 }
 

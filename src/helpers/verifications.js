@@ -1,5 +1,3 @@
-const { pool } = require('../services/database')
-
 const verifyPassword = (password) => {
     if (password.length < 8) {
         return false
@@ -18,7 +16,7 @@ const verifyPassword = (password) => {
     return true
 }
 
-const verifyUser = async (username) => {
+const verifyUser = (username) => {
     if (username.length < 4) {
         return false
     }
@@ -29,7 +27,7 @@ const verifyUser = async (username) => {
     return true
 }
 
-const verifyEmail = async (email) => {
+const verifyEmail = (email) => {
     if (email.length > 100) {
         return false
     }
@@ -39,18 +37,7 @@ const verifyEmail = async (email) => {
         return false
     }
 
-    try {
-        const result = await pool.query('SELECT COUNT(*) AS count FROM users WHERE email = $1', [email])
-
-        if (result.rows[0].count === '0') {
-            return true
-        } else {
-            return false
-        }
-    } catch (error) {
-        console.log('Error verificando email.')
-        return false
-    }
+    return true
 }
 
 module.exports = { verifyUser, verifyEmail, verifyPassword }

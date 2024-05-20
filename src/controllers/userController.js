@@ -67,43 +67,51 @@ const registerUserNormal = async (req, res) => {
 
 //LOGIN AND REGISTER WITH GOOGLE
 const google = async (req, res) => {
-    const { name, email, imageURL } = req.body
+    const { name, email, imageURL, uid } = req.body
 
     if (!name || !email || !imageURL) {
         return res.status(400).json({ error: 'Enviar name, email y imageURL.' })
     }
-
     try {
         const user = await userService.getUserByEmail(email)
 
         //If user already exists, updated token and get data
         if (user) {
-            //Get user info
-            const existingUser = userService.getGoogleUser(email)
+            const existingUser = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                imageURL: user.image_url
+            }
 
             //Creates newToken (to update)
-            const newToken = jwt.sign({ userData: existingUser.rows[0] }, process.env.JWT_SECRET, { expiresIn: '365d' })
+            const newToken = jwt.sign({ userData: existingUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
 
-            //Updates token
+            //Updates token in DB
             await userService.updateToken(newToken, email)
 
-            return res.status(200).json({ token: newToken, user: existingUser.rows[0] })
+            return res.status(200).json({ token: newToken, user: existingUser })
         }
 
         //In case of new user:
-        const newUser = { username: name, email, imageURL }
+        //Inserts info in DB
+        const newUser = { name, email, imageURL, uid }
+        const userData = await userService.insertGoogleUser(newUser)
 
         //Generates token
-        const token = jwt.sign({ userData: newUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
+        const token = jwt.sign({ userData: userData }, process.env.JWT_SECRET, { expiresIn: '365d' })
+        await userService.updateToken(token, email)
 
-        //Inserts info in DB
-        await userService.insertGoogleUser(newUser, token)
-
-        res.status(200).json({ token, user: newUser })
+        res.status(200).json({ token, user: userData })
     } catch (error) {
         console.log('Error en registro con google: ', error)
         res.status(500).json({ error: 'Error autenticando con google.' })
     }
+}
+
+//To UPDATE username
+const changeUsername = async (req, res) => {
+    const { username, email } = req.body
 }
 
 module.exports = { loginUserNormal, registerUserNormal, google, verifyToken }

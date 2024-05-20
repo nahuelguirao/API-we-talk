@@ -23,7 +23,12 @@ const verifyLogin = async (email, password) => {
     }
 
     //Info to keep into JWT token
-    const jwtUser = { username: user.username, email: user.email }
+    const jwtUser = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        imageURL: user.image_url,
+    }
     //Generates Token
     const token = jwt.sign({ userData: jwtUser }, process.env.JWT_SECRET, { expiresIn: '365d' })
 

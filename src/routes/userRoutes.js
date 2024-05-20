@@ -9,7 +9,10 @@ userRouter.post("/register", userController.registerUserNormal)
 
 userRouter.post("/google", userController.google)
 
+userRouter.post("/change-username", userController.changeUsername)
+
 //Remember passing JWT as 'token' in the header
 userRouter.get("/verify-token", verifyTokenMiddleware, userController.verifyToken);
+
 
 module.exports = userRouter
